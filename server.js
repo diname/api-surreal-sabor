@@ -3,7 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const path = require('path');
-const Database = require('./config/database');
+const database = require('./config/database'); 
 
 // Importar rotas
 const authRoutes = require('./routes/auth');
@@ -17,7 +17,7 @@ const PORT = process.env.PORT || 3001;
 // Middlewares de segurança
 app.use(helmet());
 app.use(cors({
-  origin: '*', // Permitir todas as origens para desenvolvimento
+  origin: '*',
   credentials: true
 }));
 
@@ -36,9 +36,9 @@ app.use('/api/customers', customerRoutes);
 
 // Rota de teste
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    message: 'API Surreal Sabor funcionando!', 
-    timestamp: new Date().toISOString() 
+  res.json({
+    message: 'API Surreal Sabor funcionando!',
+    timestamp: new Date().toISOString()
   });
 });
 
@@ -56,10 +56,7 @@ app.use((req, res) => {
 // Inicializar banco de dados e servidor
 async function startServer() {
   try {
-    const database = new Database();
-    await database.connect();
-    await database.initTables();
-    await database.seedData();
+    await database.connect(); // ✅ Sem `new`
     
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`Servidor rodando na porta ${PORT}`);
@@ -73,4 +70,3 @@ async function startServer() {
 }
 
 startServer();
-
