@@ -1,51 +1,23 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
+const { dbQuery, dbExec } = require('../utils/query');
 
 class AdminModel {
-  constructor() {
-    const dbPath = path.join(__dirname, '../database/surreal_sabor.db');
-    this.db = new sqlite3.Database(dbPath);
+  async getByUsername(username) {
+    const rows = await dbQuery(`SELECT * FROM admins WHERE username = ?`, [username]);
+    return rows[0];
   }
 
-  getByUsername(username) {
-    return new Promise((resolve, reject) => {
-      const query = `SELECT * FROM admins WHERE username = ?`;
-      this.db.get(query, [username], (err, row) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(row);
-        }
-      });
-    });
+  async getById(id) {
+    const rows = await dbQuery(`SELECT id, username, created_at FROM admins WHERE id = ?`, [id]);
+    return rows[0];
   }
 
-  getById(id) {
-    return new Promise((resolve, reject) => {
-      const query = `SELECT id, username, created_at FROM admins WHERE id = ?`;
-      this.db.get(query, [id], (err, row) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(row);
-        }
-      });
-    });
-  }
-
-  create(admin) {
-    return new Promise((resolve, reject) => {
-      const query = `INSERT INTO admins (username, password_hash) VALUES (?, ?)`;
-      this.db.run(query, [admin.username, admin.password_hash], function(err) {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(this.lastID);
-        }
-      });
-    });
+  async create(admin) {
+    const result = await dbExec(
+      `INSERT INTO admins (username, password_hash) VALUES (?, ?)`,
+      [admin.username, admin.password_hash]
+    );
+    return result.insertId;
   }
 }
 
-module.exports = AdminModel;
-
+module.exports = new AdminModel();

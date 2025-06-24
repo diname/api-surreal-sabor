@@ -3,7 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const path = require('path');
-const database = require('./config/database'); 
+const database = require('./config/database');
 
 // Importar rotas
 const authRoutes = require('./routes/auth');
@@ -14,18 +14,15 @@ const customerRoutes = require('./routes/customers');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middlewares de segurança
+// Segurança
 app.use(helmet());
-app.use(cors({
-  origin: '*',
-  credentials: true
-}));
+app.use(cors({ origin: '*', credentials: true }));
 
-// Middlewares de parsing
+// Parsing
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Servir arquivos estáticos (imagens)
+// Arquivos estáticos (imagens)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Rotas da API
@@ -34,7 +31,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/customers', customerRoutes);
 
-// Rota de teste
+// Health check
 app.get('/api/health', (req, res) => {
   res.json({
     message: 'API Surreal Sabor funcionando!',
@@ -42,29 +39,30 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Middleware de tratamento de erros
+// Erros internos
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ message: 'Algo deu errado!' });
+  console.error('Erro no servidor:', err.stack);
+  res.status(500).json({ message: 'Erro interno do servidor' });
 });
 
-// Middleware para rotas não encontradas
+// Rota 404
 app.use((req, res) => {
   res.status(404).json({ message: 'Rota não encontrada' });
 });
 
-// Inicializar banco de dados e servidor
+
+// Inicialização
 async function startServer() {
   try {
-    await database.connect(); // ✅ Sem `new`
-    
+    await database.connect();
+
     app.listen(PORT, '0.0.0.0', () => {
-      console.log(`Servidor rodando na porta ${PORT}`);
-      console.log(`API disponível em: http://localhost:${PORT}/api`);
-      console.log(`Health check: http://localhost:${PORT}/api/health`);
+      console.log('✅ Banco de dados conectado.');
+      console.log(`🚀 Servidor rodando em: http://localhost:${PORT}`);
+      console.log(`🩺 Health check: http://localhost:${PORT}/api/health`);
     });
   } catch (error) {
-    console.error('Erro ao inicializar o servidor:', error);
+    console.error('❌ Erro ao iniciar o servidor:', error.message);
     process.exit(1);
   }
 }

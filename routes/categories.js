@@ -1,11 +1,9 @@
 const express = require('express');
-const CategoryModel = require('../models/Category');
+const categoryModel = require('../models/Category');
 const authMiddleware = require('../middleware/auth');
 
 const router = express.Router();
-const categoryModel = new CategoryModel();
 
-// Listar todas as categorias (público)
 router.get('/', async (req, res) => {
   try {
     const categories = await categoryModel.getAll();
@@ -16,13 +14,10 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Buscar categoria por ID (público)
 router.get('/:id', async (req, res) => {
   try {
     const category = await categoryModel.getById(req.params.id);
-    if (!category) {
-      return res.status(404).json({ message: 'Categoria não encontrada' });
-    }
+    if (!category) return res.status(404).json({ message: 'Categoria não encontrada' });
     res.json(category);
   } catch (error) {
     console.error('Erro ao buscar categoria:', error);
@@ -30,14 +25,10 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Criar nova categoria (admin)
 router.post('/', authMiddleware, async (req, res) => {
   try {
     const { name, description } = req.body;
-
-    if (!name) {
-      return res.status(400).json({ message: 'Nome da categoria é obrigatório' });
-    }
+    if (!name) return res.status(400).json({ message: 'Nome da categoria é obrigatório' });
 
     const categoryId = await categoryModel.create({ name, description });
     const newCategory = await categoryModel.getById(categoryId);
@@ -48,19 +39,13 @@ router.post('/', authMiddleware, async (req, res) => {
   }
 });
 
-// Atualizar categoria (admin)
 router.put('/:id', authMiddleware, async (req, res) => {
   try {
     const { name, description } = req.body;
-
-    if (!name) {
-      return res.status(400).json({ message: 'Nome da categoria é obrigatório' });
-    }
+    if (!name) return res.status(400).json({ message: 'Nome da categoria é obrigatório' });
 
     const changes = await categoryModel.update(req.params.id, { name, description });
-    if (changes === 0) {
-      return res.status(404).json({ message: 'Categoria não encontrada' });
-    }
+    if (changes === 0) return res.status(404).json({ message: 'Categoria não encontrada' });
 
     const updatedCategory = await categoryModel.getById(req.params.id);
     res.json(updatedCategory);
@@ -70,13 +55,10 @@ router.put('/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// Deletar categoria (admin)
 router.delete('/:id', authMiddleware, async (req, res) => {
   try {
     const changes = await categoryModel.delete(req.params.id);
-    if (changes === 0) {
-      return res.status(404).json({ message: 'Categoria não encontrada' });
-    }
+    if (changes === 0) return res.status(404).json({ message: 'Categoria não encontrada' });
     res.json({ message: 'Categoria removida com sucesso' });
   } catch (error) {
     console.error('Erro ao deletar categoria:', error);
@@ -85,4 +67,3 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 });
 
 module.exports = router;
-

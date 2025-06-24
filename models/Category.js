@@ -1,77 +1,35 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
+const { dbQuery, dbExec } = require('../utils/query');
 
 class CategoryModel {
-  constructor() {
-    const dbPath = path.join(__dirname, '../database/surreal_sabor.db');
-    this.db = new sqlite3.Database(dbPath);
+  async getAll() {
+    return await dbQuery(`SELECT * FROM categories ORDER BY name`);
   }
 
-  getAll() {
-    return new Promise((resolve, reject) => {
-      const query = `SELECT * FROM categories ORDER BY name`;
-      this.db.all(query, [], (err, rows) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(rows);
-        }
-      });
-    });
+  async getById(id) {
+    const rows = await dbQuery(`SELECT * FROM categories WHERE id = ?`, [id]);
+    return rows[0];
   }
 
-  getById(id) {
-    return new Promise((resolve, reject) => {
-      const query = `SELECT * FROM categories WHERE id = ?`;
-      this.db.get(query, [id], (err, row) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(row);
-        }
-      });
-    });
+  async create(category) {
+    const result = await dbExec(
+      `INSERT INTO categories (name, description) VALUES (?, ?)`,
+      [category.name, category.description]
+    );
+    return result.insertId;
   }
 
-  create(category) {
-    return new Promise((resolve, reject) => {
-      const query = `INSERT INTO categories (name, description) VALUES (?, ?)`;
-      this.db.run(query, [category.name, category.description], function(err) {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(this.lastID);
-        }
-      });
-    });
+  async update(id, category) {
+    const result = await dbExec(
+      `UPDATE categories SET name = ?, description = ? WHERE id = ?`,
+      [category.name, category.description, id]
+    );
+    return result.affectedRows;
   }
 
-  update(id, category) {
-    return new Promise((resolve, reject) => {
-      const query = `UPDATE categories SET name = ?, description = ? WHERE id = ?`;
-      this.db.run(query, [category.name, category.description, id], function(err) {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(this.changes);
-        }
-      });
-    });
-  }
-
-  delete(id) {
-    return new Promise((resolve, reject) => {
-      const query = `DELETE FROM categories WHERE id = ?`;
-      this.db.run(query, [id], function(err) {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(this.changes);
-        }
-      });
-    });
+  async delete(id) {
+    const result = await dbExec(`DELETE FROM categories WHERE id = ?`, [id]);
+    return result.affectedRows;
   }
 }
 
-module.exports = CategoryModel;
-
+module.exports = new CategoryModel();
