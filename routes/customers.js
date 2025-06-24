@@ -1,12 +1,77 @@
 const express = require('express');
-const CustomerModel = require('../models/Customer');
-const authMiddleware = require('../middleware/auth');
-
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const customerModel = require('../models/Customer');
+const customerAuth = require('../middleware/customerAuth');
 const router = express.Router();
-const customerModel = new CustomerModel();
 
-// Listar todos os clientes (admin)
-router.get('/', authMiddleware, async (req, res) => {
+// Cadastro de novo cliente
+router.post('/', async (req, res) => {
+  try {
+    const { full_name, email, password, phone, address } = req.body;
+    if (!full_name || !email || !password)
+      return res.status(400).json({ message: 'Nome, email e senha são obrigatórios' });
+
+    const existingCustomer = await customerModel.getByEmail(email);
+    if (existingCustomer)
+      return res.status(400).json({ message: 'Email já cadastrado' });
+
+    const password_hash = await bcrypt.hash(password, 10);
+    const customerId = await customerModel.create({ full_name, email, phone, address, password_hash });
+    const newCustomer = await customerModel.getById(customerId);
+
+    const token = jwt.sign(
+      { id: newCustomer.id, email: newCustomer.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.status(201).json({
+      message: 'Cliente cadastrado com sucesso',
+      customer: newCustomer,
+      token
+    });
+  } catch (error) {
+    console.error('Erro ao cadastrar cliente:', error);
+    res.status(500).json({ message: 'Erro interno do servidor' });
+  }
+});
+
+// Login de cliente
+router.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password)
+      return res.status(400).json({ message: 'Email e senha são obrigatórios' });
+
+    const customer = await customerModel.getByEmail(email);
+    if (!customer || !customer.password_hash)
+      return res.status(404).json({ message: 'Cliente não encontrado' });
+
+    const passwordMatch = await bcrypt.compare(password, customer.password_hash);
+    if (!passwordMatch)
+      return res.status(401).json({ message: 'Senha incorreta' });
+
+    const token = jwt.sign(
+      { id: customer.id, email: customer.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.json({ message: 'Login realizado com sucesso', customer, token });
+  } catch (error) {
+    console.error('Erro no login do cliente:', error);
+    res.status(500).json({ message: 'Erro interno do servidor' });
+  }
+});
+
+// Verificação de token
+router.get('/verify', customerAuth, async (req, res) => {
+  res.json({ valid: true, customer: req.customer });
+});
+
+// Obter todos os clientes
+router.get('/', customerAuth, async (req, res) => {
   try {
     const customers = await customerModel.getAll();
     res.json(customers);
@@ -16,13 +81,11 @@ router.get('/', authMiddleware, async (req, res) => {
   }
 });
 
-// Buscar cliente por ID (admin)
-router.get('/:id', authMiddleware, async (req, res) => {
+// Obter cliente por ID
+router.get('/:id', customerAuth, async (req, res) => {
   try {
     const customer = await customerModel.getById(req.params.id);
-    if (!customer) {
-      return res.status(404).json({ message: 'Cliente não encontrado' });
-    }
+    if (!customer) return res.status(404).json({ message: 'Cliente não encontrado' });
     res.json(customer);
   } catch (error) {
     console.error('Erro ao buscar cliente:', error);
@@ -30,58 +93,15 @@ router.get('/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// Cadastrar novo cliente (público)
-router.post('/', async (req, res) => {
+// Atualizar cliente
+router.put('/:id', customerAuth, async (req, res) => {
   try {
     const { full_name, email, phone, address } = req.body;
-
-    if (!full_name || !email) {
+    if (!full_name || !email)
       return res.status(400).json({ message: 'Nome completo e email são obrigatórios' });
-    }
 
-    // Verificar se o email já existe
-    const existingCustomer = await customerModel.getByEmail(email);
-    if (existingCustomer) {
-      return res.status(400).json({ message: 'Email já cadastrado' });
-    }
-
-    const customerId = await customerModel.create({
-      full_name,
-      email,
-      phone,
-      address
-    });
-
-    const newCustomer = await customerModel.getById(customerId);
-    res.status(201).json({
-      message: 'Cliente cadastrado com sucesso',
-      customer: newCustomer
-    });
-  } catch (error) {
-    console.error('Erro ao cadastrar cliente:', error);
-    res.status(500).json({ message: 'Erro interno do servidor' });
-  }
-});
-
-// Atualizar cliente (admin)
-router.put('/:id', authMiddleware, async (req, res) => {
-  try {
-    const { full_name, email, phone, address } = req.body;
-
-    if (!full_name || !email) {
-      return res.status(400).json({ message: 'Nome completo e email são obrigatórios' });
-    }
-
-    const changes = await customerModel.update(req.params.id, {
-      full_name,
-      email,
-      phone,
-      address
-    });
-
-    if (changes === 0) {
-      return res.status(404).json({ message: 'Cliente não encontrado' });
-    }
+    const changes = await customerModel.update(req.params.id, { full_name, email, phone, address });
+    if (changes === 0) return res.status(404).json({ message: 'Cliente não encontrado' });
 
     const updatedCustomer = await customerModel.getById(req.params.id);
     res.json(updatedCustomer);
@@ -91,13 +111,11 @@ router.put('/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// Deletar cliente (admin)
-router.delete('/:id', authMiddleware, async (req, res) => {
+// Deletar cliente
+router.delete('/:id', customerAuth, async (req, res) => {
   try {
     const changes = await customerModel.delete(req.params.id);
-    if (changes === 0) {
-      return res.status(404).json({ message: 'Cliente não encontrado' });
-    }
+    if (changes === 0) return res.status(404).json({ message: 'Cliente não encontrado' });
     res.json({ message: 'Cliente removido com sucesso' });
   } catch (error) {
     console.error('Erro ao deletar cliente:', error);
@@ -106,4 +124,3 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 });
 
 module.exports = router;
-

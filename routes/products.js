@@ -1,9 +1,8 @@
 const express = require('express');
-const ProductModel = require('../models/Product');
+const productModel = require('../models/Product');
 const authMiddleware = require('../middleware/auth');
 
 const router = express.Router();
-const productModel = new ProductModel();
 
 // Listar todos os produtos (público)
 router.get('/', async (req, res) => {
@@ -20,9 +19,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const product = await productModel.getById(req.params.id);
-    if (!product) {
-      return res.status(404).json({ message: 'Produto não encontrado' });
-    }
+    if (!product) return res.status(404).json({ message: 'Produto não encontrado' });
     res.json(product);
   } catch (error) {
     console.error('Erro ao buscar produto:', error);
@@ -55,19 +52,24 @@ router.get('/featured/list', async (req, res) => {
 // Criar novo produto (admin)
 router.post('/', authMiddleware, async (req, res) => {
   try {
-    const { name, description, price, category_id, image_url, is_featured } = req.body;
+    let { name, description, price, category_id, image_url, is_featured } = req.body;
 
     if (!name || !price || !category_id) {
       return res.status(400).json({ message: 'Nome, preço e categoria são obrigatórios' });
     }
 
+    // Normalizando valores para evitar undefined
+    description = description ?? null;
+    image_url = image_url ?? null;
+    is_featured = is_featured === true || is_featured === 1 ? 1 : 0;
+
     const productId = await productModel.create({
       name,
       description,
-      price,
-      category_id,
+      price: parseFloat(price),
+      category_id: parseInt(category_id),
       image_url,
-      is_featured: is_featured || false
+      is_featured
     });
 
     const newProduct = await productModel.getById(productId);
@@ -81,25 +83,28 @@ router.post('/', authMiddleware, async (req, res) => {
 // Atualizar produto (admin)
 router.put('/:id', authMiddleware, async (req, res) => {
   try {
-    const { name, description, price, category_id, image_url, is_featured, is_active } = req.body;
+    let { name, description, price, category_id, image_url, is_featured, is_active } = req.body;
 
     if (!name || !price || !category_id) {
       return res.status(400).json({ message: 'Nome, preço e categoria são obrigatórios' });
     }
 
+    description = description ?? null;
+    image_url = image_url ?? null;
+    is_featured = is_featured === true || is_featured === 1 ? 1 : 0;
+    is_active = is_active === false || is_active === 0 ? 0 : 1;
+
     const changes = await productModel.update(req.params.id, {
       name,
       description,
-      price,
-      category_id,
+      price: parseFloat(price),
+      category_id: parseInt(category_id),
       image_url,
       is_featured,
       is_active
     });
 
-    if (changes === 0) {
-      return res.status(404).json({ message: 'Produto não encontrado' });
-    }
+    if (changes === 0) return res.status(404).json({ message: 'Produto não encontrado' });
 
     const updatedProduct = await productModel.getById(req.params.id);
     res.json(updatedProduct);
@@ -113,9 +118,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
 router.delete('/:id', authMiddleware, async (req, res) => {
   try {
     const changes = await productModel.delete(req.params.id);
-    if (changes === 0) {
-      return res.status(404).json({ message: 'Produto não encontrado' });
-    }
+    if (changes === 0) return res.status(404).json({ message: 'Produto não encontrado' });
     res.json({ message: 'Produto removido com sucesso' });
   } catch (error) {
     console.error('Erro ao deletar produto:', error);
@@ -124,4 +127,3 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 });
 
 module.exports = router;
-

@@ -1,108 +1,40 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
+const { dbQuery, dbExec } = require('../utils/query');
 
 class CustomerModel {
-  constructor() {
-    const dbPath = path.join(__dirname, '../database/surreal_sabor.db');
-    this.db = new sqlite3.Database(dbPath);
+  async getAll() {
+    return await dbQuery(`SELECT id, full_name, email, phone, address, created_at FROM customers ORDER BY created_at DESC`);
   }
 
-  getAll() {
-    return new Promise((resolve, reject) => {
-      const query = `SELECT * FROM customers ORDER BY created_at DESC`;
-      this.db.all(query, [], (err, rows) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(rows);
-        }
-      });
-    });
+  async getById(id) {
+    const rows = await dbQuery(`SELECT id, full_name, email, phone, address, created_at FROM customers WHERE id = ?`, [id]);
+    return rows[0];
   }
 
-  getById(id) {
-    return new Promise((resolve, reject) => {
-      const query = `SELECT * FROM customers WHERE id = ?`;
-      this.db.get(query, [id], (err, row) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(row);
-        }
-      });
-    });
+  async getByEmail(email) {
+    const rows = await dbQuery(`SELECT * FROM customers WHERE email = ?`, [email]);
+    return rows[0]; 
   }
 
-  getByEmail(email) {
-    return new Promise((resolve, reject) => {
-      const query = `SELECT * FROM customers WHERE email = ?`;
-      this.db.get(query, [email], (err, row) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(row);
-        }
-      });
-    });
+  async create(customer) {
+    const result = await dbExec(
+      `INSERT INTO customers (full_name, email, phone, address, password_hash) VALUES (?, ?, ?, ?, ?)`,
+      [customer.full_name, customer.email, customer.phone, customer.address, customer.password_hash]
+    );
+    return result.insertId;
   }
 
-  create(customer) {
-    return new Promise((resolve, reject) => {
-      const query = `
-        INSERT INTO customers (full_name, email, phone, address) 
-        VALUES (?, ?, ?, ?)
-      `;
-      this.db.run(query, [
-        customer.full_name,
-        customer.email,
-        customer.phone,
-        customer.address
-      ], function(err) {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(this.lastID);
-        }
-      });
-    });
+  async update(id, customer) {
+    const result = await dbExec(
+      `UPDATE customers SET full_name = ?, email = ?, phone = ?, address = ? WHERE id = ?`,
+      [customer.full_name, customer.email, customer.phone, customer.address, id]
+    );
+    return result.affectedRows;
   }
 
-  update(id, customer) {
-    return new Promise((resolve, reject) => {
-      const query = `
-        UPDATE customers 
-        SET full_name = ?, email = ?, phone = ?, address = ? 
-        WHERE id = ?
-      `;
-      this.db.run(query, [
-        customer.full_name,
-        customer.email,
-        customer.phone,
-        customer.address,
-        id
-      ], function(err) {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(this.changes);
-        }
-      });
-    });
-  }
-
-  delete(id) {
-    return new Promise((resolve, reject) => {
-      const query = `DELETE FROM customers WHERE id = ?`;
-      this.db.run(query, [id], function(err) {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(this.changes);
-        }
-      });
-    });
+  async delete(id) {
+    const result = await dbExec(`DELETE FROM customers WHERE id = ?`, [id]);
+    return result.affectedRows;
   }
 }
 
-module.exports = CustomerModel;
-
+module.exports = new CustomerModel();
